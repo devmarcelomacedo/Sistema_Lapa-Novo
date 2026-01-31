@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Pão da Lapa - Gestão</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --red: #d32f2f;
+            --green: #28a745;
+            --dark: #1a1a1a;
+            --blue: #007bff;
+            --orange: #fb8c00;
+        }
+
+        body {
+            font-family: sans-serif;
+            background: #f4f7f6;
+            margin: 0;
+        }
+
+        #telaLogin {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .login-box {
+            width: 300px;
+            text-align: center;
+            color: white;
+            background: #222;
+            padding: 30px;
+            border-radius: 10px;
+        }
+
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-nav {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            background: #eee;
+        }
+
+        .active {
+            background: var(--red) !important;
+            color: white;
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 20px auto;
+            display: flex;
+            gap: 20px;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            flex: 1;
+        }
+
+        #visor {
+            background: #000;
+            color: #00ff00;
+            padding: 20px;
+            font-size: 36px;
+            text-align: center;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-family: monospace;
+        }
+
+        .alerta-estoque {
+            background-color: #ffebee !important;
+            color: #c62828 !important;
+            font-weight: bold;
+        }
+
+        tr.alerta-estoque td {
+            background-color: #ffcccc !important;
+            color: #b71c1c !important;
+            font-weight: bold !important;
+            border-bottom: 2px solid #b71c1c !important;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+
+        .btn-edit {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #listaCarrinho {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            height: 150px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            background: #fafafa;
+        }
+
+        .item-carrinho {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+
+        .paginacao {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="telaLogin">
+        <div class="login-box">
+            <h2>🥖 Pão da Lapa</h2>
+            <input type="text" id="userIn" placeholder="Usuário">
+            <input type="password" id="passIn" placeholder="Senha">
+            <button onclick="logar()"
+                style="width:100%; padding:10px; background:var(--red); color:white; border:none; border-radius:5px; cursor:pointer;">ACESSAR
+                SISTEMA</button>
+        </div>
+    </div>
+
+    <div class="nav">
+        <button onclick="aba('caixa')" id="b1" class="btn-nav active">🛒 CAIXA</button>
+        <button onclick="aba('encomenda')" id="b2" class="btn-nav">📦 ENCOMENDA</button>
+        <button onclick="aba('cadastro')" id="b3" class="btn-nav">🍞 PRODUTOS</button>
+        <button onclick="aba('usuarios')" id="b4" class="btn-nav">👥 USUÁRIOS</button>
+        <button onclick="imprimirRelatorio()" class="btn-nav" style="background: var(--blue); color: white;">📄
+            RELATÓRIO / ESTORNO</button>
+    </div>
+
+    <div class="main-container">
+        <div class="card" style="flex: 2;">
+            <h3>Estoque Atual <input type="text" id="buscaReal" onkeyup="filtrar()" placeholder="🔍 BUSCAR PRODUTO..."
+                    style="width:50%; float:right;"></h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Produto</th>
+                        <th>Preço</th>
+                        <th>Saldo</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaCorpo"></tbody>
+            </table>
+            <div class="paginacao">
+                <button onclick="mudarPagina(-1)" class="btn-nav">◀ Anterior</button>
+                <span id="txtPagina" style="line-height: 40px;">Página 1</span>
+                <button onclick="mudarPagina(1)" class="btn-nav">Próximo ▶</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div id="aba-caixa">
+                <div id="visor">R$ 0,00</div>
+                <p id="infoFunc" style="text-align:center; font-size: 12px; color: #666;"></p>
+
+                <div style="display:flex; gap: 5px;">
+                    <input type="text" id="vBusca" placeholder="ID ou Nome">
+                    <input type="number" id="vQtd" placeholder="Qtd" style="width: 80px;">
+                </div>
+
+                <button onclick="adicionarCarrinho()"
+                    style="width:100%; padding:10px; background:var(--blue); color:white; border:none; border-radius:8px; margin-bottom:10px; cursor:pointer;">ADICIONAR
+                    ITEM</button>
+
+                <div id="listaCarrinho">🛒 Carrinho vazio...</div>
+
+                <select id="vPagamento" onchange="checarPagamento()">
+                    <option value="DINHEIRO">💵 DINHEIRO</option>
+                    <option value="PIX">⚡ PIX</option>
+                    <option value="CREDITO">💳 CRÉDITO</option>
+                    <option value="DEBITO">💳 DÉBITO</option>
+                </select>
+
+                <div id="painelDinheiro">
+                    <input type="number" id="vRecebido" placeholder="Valor Recebido (R$)" onkeyup="calcularTroco()">
+                    <p id="txtTroco" style="font-weight:bold; color:var(--red); text-align:center;">Troco: R$ 0,00</p>
+                </div>
+
+                <button onclick="vender()"
+                    style="width:100%; padding:18px; background:var(--green); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">FINALIZAR
+                    COMPRA</button>
+            </div>
+
+            <div id="aba-encomenda" style="display:none">
+                <h3>📦 Encomenda</h3>
+                <input type="text" id="eNome" placeholder="Nome do Cliente">
+                <textarea id="eEnd" placeholder="Endereço para o Mapa"></textarea>
+                <button onclick="encomendar()"
+                    style="width:100%; padding:15px; background:var(--orange); color:white; border:none; border-radius:8px;">SALVAR
+                    E ABRIR MAPA</button>
+            </div>
+
+            <div id="aba-cadastro" style="display:none">
+                <h3>🍞 Cadastro de Itens</h3>
+                <input type="text" id="cNome" placeholder="Nome">
+                <input type="number" id="cPreco" placeholder="Preço">
+                <select id="cMedida">
+                    <option value="un-1">Unidade (UN)</option>
+                    <option value="kg-1">1 KG</option>
+                    <option value="kg-2">2 KG</option>
+                    <option value="kg-5">5 KG</option>
+                    <option value="lt-1">LITRO</option>
+                    <option value="cart-1">CARTEIRA</option>
+                    <option value="pct-1">PACOTE</option>
+                </select>
+                <input type="number" id="cEst" placeholder="Estoque">
+                <input type="number" id="cMin" placeholder="Mínimo">
+                <button onclick="cadastrar()"
+                    style="width:100%; padding:15px; background:var(--dark); color:white; border:none; border-radius:8px;">SALVAR</button>
+            </div>
+
+            <div id="aba-usuarios" style="display:none">
+                <h3>👥 Cadastrar Funcionário</h3>
+                <input type="text" id="newLogin" placeholder="Nome de Login">
+                <input type="password" id="newPass" placeholder="Senha">
+                <button onclick="cadastrarUsuario()"
+                    style="width:100%; padding:15px; background:var(--blue); color:white; border:none; border-radius:8px;">CADASTRAR
+                    FUNCIONÁRIO</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const bip = new Audio('https://www.soundjay.com/buttons/beep-07a.mp3');
+        const WHATSAPP_DONO = "5522988302170";
+        let dadosLocal = [];
+        let funcionarioLogado = "";
+        let carrinho = [];
+        let paginaAtual = 1;
+        const itensPorPagina = 10;
+
+        function adicionarCarrinho() {
+            const busca = vBusca.value.toLowerCase();
+            const qtd = parseFloat(vQtd.value) || 1;
+            const produto = dadosLocal.find(p => p.id == busca || p.nome.toLowerCase() === busca);
+            if (!produto) return alert("Produto não encontrado!");
+            const item = {
+                id: produto.id,
+                nome: produto.nome,
+                preco: produto.preco,
+                quantidade: qtd,
+                total: produto.preco * qtd
+            };
+            carrinho.push(item);
+            vBusca.value = ''; vQtd.value = '';
+            atualizarInterfaceCarrinho();
+        }
+
+        function atualizarInterfaceCarrinho() {
+            if (carrinho.length === 0) {
+                listaCarrinho.innerHTML = "🛒 Carrinho vazio...";
+                visor.innerText = "R$ 0,00";
+                return;
+            }
+            let totalGeral = 0;
+            listaCarrinho.innerHTML = carrinho.map((item, index) => {
+                totalGeral += item.total;
+                return `<div class="item-carrinho">
+                            <span>${item.nome} (${item.quantidade}x)</span>
+                            <span>R$ ${item.total.toFixed(2)} <button onclick="removerItem(${index})" style="color:red; border:none; background:none; cursor:pointer;">X</button></span>
+                        </div>`;
+            }).join('');
+            visor.innerText = "R$ " + totalGeral.toFixed(2);
+            calcularTroco();
+        }
+
+        function removerItem(index) {
+            carrinho.splice(index, 1);
+            atualizarInterfaceCarrinho();
+        }
+
+        function checarPagamento() {
+            painelDinheiro.style.display = (vPagamento.value === 'DINHEIRO') ? 'block' : 'none';
+        }
+
+        function calcularTroco() {
+            const total = parseFloat(visor.innerText.replace("R$ ", ""));
+            const recebido = parseFloat(vRecebido.value) || 0;
+            const troco = recebido - total;
+            txtTroco.innerText = "Troco: R$ " + (troco > 0 ? troco.toFixed(2) : "0,00");
+        }
+
+        async function logar() {
+            const res = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ login: userIn.value, senha: passIn.value }) });
+            const data = await res.json();
+            if (res.ok) {
+                funcionarioLogado = data.usuario;
+                telaLogin.style.display = 'none';
+                infoFunc.innerText = "Operador: " + funcionarioLogado;
+                carregar();
+            } else alert("Usuário ou Senha incorretos!");
+        }
+
+        async function cadastrarUsuario() {
+            if (!newLogin.value || !newPass.value) return alert("Preencha todos os campos!");
+            const res = await fetch('/registrar-usuario', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ login: newLogin.value, senha: newPass.value }) });
+            if (res.ok) {
+                alert("Funcionário " + newLogin.value + " cadastrado!");
+                newLogin.value = ''; newPass.value = '';
+            } else alert("Erro ou Usuário já existe!");
+        }
+
+        async function carregar() {
+            const res = await fetch('/estoque');
+            dadosLocal = await res.json();
+            renderizar();
+        }
+
+        function renderizar(itensFiltrados = null) {
+            const lista = itensFiltrados || dadosLocal;
+            const inicio = (paginaAtual - 1) * itensPorPagina;
+            const fim = inicio + itensPorPagina;
+            const itensPagina = lista.slice(inicio, fim);
+
+            tabelaCorpo.innerHTML = itensPagina.map(p => {
+                const emAlerta = p.estoque <= p.estoque_minimo;
+                const classeAlerta = emAlerta ? 'alerta-estoque' : '';
+                return `
+            <tr class="${classeAlerta}">
+                <td>${p.id}</td>
+                <td>${p.nome} ${emAlerta ? '⚠️' : ''}</td>
+                <td>R$ ${p.preco.toFixed(2)}</td>
+                <td>${p.estoque.toFixed(3)} ${p.medida.toUpperCase()}</td>
+                <td><button class="btn-edit" onclick="editarItem(${p.id},'${p.nome}',${p.preco},${p.estoque})">📝 EDITAR</button></td>
+            </tr>`;
+            }).join('');
+            
+            txtPagina.innerText = `Página ${paginaAtual}`;
+        }
+
+        function mudarPagina(dir) {
+            const totalPaginas = Math.ceil(dadosLocal.length / itensPorPagina);
+            paginaAtual += dir;
+            if (paginaAtual < 1) paginaAtual = 1;
+            if (paginaAtual > totalPaginas) paginaAtual = totalPaginas;
+            renderizar();
+        }
+
+        async function editarItem(id, nome, preco, estoque) {
+            const n = prompt("Novo Nome:", nome);
+            const p = prompt("Novo Preço:", preco);
+            const e = prompt("Novo Estoque:", estoque);
+            if (n && p && e) {
+                await fetch('/editar-produto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, nome: n, preco: parseFloat(p), estoque: parseFloat(e) }) });
+                carregar();
+            }
+        }
+
+        function filtrar() {
+            const t = buscaReal.value.toLowerCase();
+            paginaAtual = 1;
+            renderizar(dadosLocal.filter(p => p.nome.toLowerCase().includes(t) || p.id == t));
+        }
+
+        async function vender() {
+            if (carrinho.length === 0) return alert("Carrinho vazio!");
+            const res = await fetch('/venda-multipla', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    itens: carrinho,
+                    pagamento: vPagamento.value,
+                    funcionario: funcionarioLogado
+                })
+            });
+            if (res.ok) {
+                bip.play();
+                gerarCupom(carrinho, vPagamento.value, visor.innerText);
+                alert("Venda Finalizada!");
+                carrinho = [];
+                vRecebido.value = '';
+                atualizarInterfaceCarrinho();
+                carregar();
+            } else alert("Erro ao processar venda!");
+        }
+
+        function gerarCupom(itens, pgto, total) {
+            let win = window.open('', '', 'width=300,height=400');
+            let data = new Date().toLocaleString();
+            let listaItens = itens.map(i => `${i.nome} x${i.quantidade} - R$ ${i.total.toFixed(2)}`).join('<br>');
+            win.document.write(`
+                <div style="font-family:monospace; font-size:12px; width:250px;">
+                    <h2 style="text-align:center;">PÃO DA LAPA</h2>
+                    <p style="text-align:center;">CUPOM NÃO FISCAL</p>
+                    <hr>
+                    ${data}<br>
+                    Atendente: ${funcionarioLogado}<br>
+                    <hr>
+                    ${listaItens}
+                    <hr>
+                    <b>TOTAL: ${total}</b><br>
+                    PAGTO: ${pgto}
+                    <hr>
+                    <p style="text-align:center;">Obrigado pela preferência!</p>
+                </div>
+            `);
+            win.print();
+            win.close();
+        }
+
+        async function cadastrar() {
+            const parts = cMedida.value.split('-');
+            await fetch('/cadastrar-produto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: cNome.value, preco: cPreco.value, medida: parts[0], peso_ref: parts[1], estoque: cEst.value, minimo: cMin.value }) });
+            alert("Produto Salvo!");
+            cNome.value = ''; cPreco.value = ''; cEst.value = ''; cMin.value = ''; carregar();
+        }
+
+        function imprimirRelatorio() {
+            const tipo = prompt("Tipo de Relatório: diario, semanal ou mensal", "diario");
+            fetch('/relatorio-vendas?filtro=' + tipo).then(r => r.json()).then(vendas => {
+                let win = window.open('', '', 'width=1100,height=800');
+                win.vendasDados = vendas;
+                let totalGeral = vendas.filter(v => v.status !== 'ESTORNADO').reduce((a, b) => a + b.total_venda, 0);
+
+                let linhas = vendas.map(v => {
+                    let style = v.status === 'ESTORNADO' ? 'text-decoration:line-through; color:red; font-weight:bold;' : '';
+                    let acao = v.status === 'CONCLUIDA' ? `<button style="background:red;color:white;border:none;padding:5px;cursor:pointer;" onclick="estornar(${v.id},${v.quantidade},'${v.produto_nome}', ${v.total_venda / v.quantidade})">ESTORNAR</button>` : 'ESTORNADO';
+                    return `<tr style="${style}"><td>${new Date(v.data).toLocaleString()}</td><td>${v.produto_nome}</td><td>${v.quantidade}</td><td>${v.metodo_pagamento}</td><td>R$ ${v.total_venda.toFixed(2)}</td><td>${v.funcionario || 'N/A'}</td><td>${acao}</td></tr>`;
+                }).join('');
+
+                win.document.write(`<html><head><style>table{width:100%;border-collapse:collapse;font-family:sans-serif;} th,td{border:1px solid #ddd;padding:10px;}</style><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"><\/script></head><body>
+                <h2>RELATÓRIO ${tipo.toUpperCase()} - PÃO DA LAPA</h2>
+                <button style="background:#1D6F42;color:white;padding:10px;border:none;border-radius:5px;cursor:pointer;" onclick="baixarExcel()">📊 EXPORTAR EXCEL</button>
+                <h3 style="color:green">TOTAL: R$ ${totalGeral.toFixed(2)}</h3>
+                <table><tr><th>Data</th><th>Item</th><th>Qtd</th><th>Pgto</th><th>Total</th><th>Vendedor</th><th>Ação</th></tr>${linhas}</table>
+                <script>
+                function baixarExcel(){const ws=XLSX.utils.json_to_sheet(window.vendasDados);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Vendas");XLSX.writeFile(wb,"Vendas_Lapa.xlsx");}
+                
+                function estornar(id, qOriginal, nome, precoUn){ 
+                    // 1. CAMPO QUANTIDADE ORIGINAL E VALOR UNITÁRIO
+                    let promptMsg = "ESTORNO PARCIAL: " + nome + "\\n" +
+                                    "-------------------------------------------\\n" +
+                                    "Qtd Original Vendida: " + qOriginal + "\\n" +
+                                    "Preço Unitário: R$ " + precoUn.toFixed(2) + "\\n" +
+                                    "-------------------------------------------\\n" +
+                                    "Quanto o cliente está DEVOLVENDO agora?";
+
+                    // 2. CAMPO INPUT PARA ESTORNO (via prompt)
+                    let qtdDevolver = prompt(promptMsg, qOriginal);
+                    
+                    if(qtdDevolver !== null && qtdDevolver !== "") {
+                        let nDevolver = parseFloat(qtdDevolver);
+                        
+                        if(isNaN(nDevolver) || nDevolver <= 0 || nDevolver > qOriginal) {
+                            alert("Erro: Quantidade inválida.");
+                            return;
+                        }
+
+                        // 3. CAMPO RESULTADO (SALDO QUANTIDADE E NOVO VALOR)
+                        let saldoQtd = qOriginal - nDevolver;
+                        let novoValorTotal = saldoQtd * precoUn;
+                        
+                        let confirmacao = "RESUMO DO ESTORNO\\n" +
+                                          "-------------------------------------------\\n" +
+                                          "Devolvendo ao Estoque: " + nDevolver + "\\n" +
+                                          "Saldo com o Cliente: " + saldoQtd + "\\n" +
+                                          "-------------------------------------------\\n" +
+                                          "NOVO VALOR DA COMPRA: R$ " + novoValorTotal.toFixed(2) + "\\n" +
+                                          "-------------------------------------------\\n" +
+                                          "Confirma a alteração?";
+
+                        if(confirm(confirmacao)){
+                            fetch("/anular-venda",{
+                                method:"POST",
+                                headers:{"Content-Type":"application/json"},
+                                body:JSON.stringify({vendaId:id, qtdEstorno:nDevolver})
+                            }).then(() => {
+                                alert("Sucesso! Saldo final atualizado.");
+                                location.reload();
+                                if(window.opener) window.opener.location.reload();
+                            });
+                        }
+                    }
+                }
+                <\/script></body></html>`);
+            });
+        }
+
+        function encomendar() {
+            const query = encodeURIComponent(eEnd.value);
+            const mapsLink = `https://www.google.com/maps/search/?api=1&query=${query}`;
+            const msg = `📦 *ENCOMENDA*\n*Cliente:* ${eNome.value}\n*Local:* ${eEnd.value}\n📍 *Mapa:* ${mapsLink}`;
+            window.open(`https://api.whatsapp.com/send?phone=${WHATSAPP_DONO}&text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function aba(id) {
+            ['caixa', 'encomenda', 'cadastro', 'usuarios'].forEach(a => document.getElementById('aba-' + a).style.display = (a == id ? 'block' : 'none'));
+            ['b1', 'b2', 'b3', 'b4'].forEach(b => document.getElementById(b).classList.remove('active'));
+            document.getElementById(id == 'caixa' ? 'b1' : id == 'encomenda' ? 'b2' : id == 'cadastro' ? 'b3' : 'b4').classList.add('active');
+        }
+    </script>
+</body>
+
+</html>
